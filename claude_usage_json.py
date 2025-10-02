@@ -3,6 +3,7 @@
 import argparse
 import json
 import re
+import sys
 import time
 
 import pexpect
@@ -81,6 +82,10 @@ def operation(
 ):
     output: str = get_output(wait=wait)
     data: dict = parse(output=output)
+    if len(data) == 0:
+        sys.stderr.write("Failed to get usage data.\n")
+        sys.exit(1)
+
     json_data = json.dumps(
         data,
         indent=2,
