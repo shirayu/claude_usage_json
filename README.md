@@ -10,6 +10,7 @@ pip install 'git+https://github.com/shirayu/claude_usage_json'
 # With uv
 uv tool install 'git+https://github.com/shirayu/claude_usage_json'
 
+# Run in 'trusted folder' where claude not asks you "Do you trust the files in this folder?"
 $ claude_usage_json
 {
   "Current session": {
