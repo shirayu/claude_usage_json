@@ -1,0 +1,17 @@
+[project]
+name = "claude-usage-json"
+version = "0.1.0"
+description = "Get claude usage"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+  "pexpect>=4.9.0",
+  "python-dateutil>=2.9.0.post0",
+  "pytz>=2025.2",
+]
+
+[project.scripts]
+claude_usage_json = "claude_usage_json:main"
+
+[tool.uv]
+package = true
