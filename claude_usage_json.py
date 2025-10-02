@@ -42,48 +42,79 @@ def parse(
     *,
     output: str,
     now: datetime,
+    debug: bool = False,
 ) -> dict:
     clean_output = re.sub(r"\x1b\[[0-9;]*m", "", output)
     sections = re.split(r"\n\s*\n", clean_output.strip())
     data = {}
 
-    for sec in sections:
+    i = 0
+    while i < len(sections):
+        sec = sections[i]
+        if debug:
+            sys.stderr.write(f"\n=== Section {i} ===\n{repr(sec)}\n")
         lines = sec.strip().splitlines()
         if not lines:
+            i += 1
             continue
 
         name = lines[0].strip()
-        if not name.startswith("Current "):
+
+        # Check if this is a title line (case-insensitive)
+        if not name.lower().startswith("current "):
+            i += 1
             continue
 
+        # Check if usage/resets are in the same section or next section
         usage_match = re.search(r"(\d+)% used", sec)
-        usage = int(usage_match.group(1)) if usage_match else None
+        reset_match = re.search(r"Resets (.+)", sec, re.IGNORECASE)
 
-        reset_match = re.search(r"Resets (.+)", sec)
+        # If not found in current section, check next section
+        if not usage_match and i + 1 < len(sections):
+            next_sec = sections[i + 1]
+            usage_match = re.search(r"(\d+)% used", next_sec)
+            reset_match = re.search(r"Resets (.+)", next_sec, re.IGNORECASE)
+            i += 1  # Skip next section as we've already processed it
+
+        usage = int(usage_match.group(1)) if usage_match else None
         reset_raw = reset_match.group(1).strip() if reset_match else None
+        i += 1
 
         reset_iso = None
         resets_second: int | None = None
         if reset_raw:
             try:
+                from datetime import timedelta
+
                 tz_match = re.search(r"\((.+)\)", reset_raw)
                 tz_name = tz_match.group(1) if tz_match else "UTC"
                 dt_str = re.sub(r"\(.+\)", "", reset_raw).strip()
 
                 tz = pytz.timezone(tz_name)
-                dt = parser.parse(dt_str)
-                reset_iso = tz.localize(dt).isoformat()
-                resets_second = int((dt - now).total_seconds())
+                # Use default date/time, but parse will override the parts present in dt_str
+                default_dt = now.replace(hour=0, minute=0, second=0, microsecond=0, tzinfo=None)
+                dt = parser.parse(dt_str, default=default_dt)
+                dt_localized = tz.localize(dt)
+
+                # If the reset time is in the past, assume it's for the next day
+                if dt_localized < tz.localize(now):
+                    dt = dt + timedelta(days=1)
+                    dt_localized = tz.localize(dt)
+
+                reset_iso = dt_localized.isoformat()
+                now_localized = tz.localize(now) if now.tzinfo is None else now.astimezone(tz)
+                resets_second = int((dt_localized - now_localized).total_seconds())
             except Exception:
                 pass
 
-        data[
+        key = (
             name.lower()
             .replace("(", "")
             .replace(")", "")
             .replace(" ", "_")
             .replace("current_", "")
-        ] = {
+        )
+        data[key] = {
             "usage_percent": usage,
             "resets": reset_iso,
             "resets_second": resets_second,
@@ -97,16 +128,23 @@ def operation(
     wait: int,
     path_out: Path,
     path_bin: str,
+    debug: bool = False,
 ):
     output: str = get_output(
         wait=wait,
         cmd=f"{path_bin} /usage",
     )
 
+    if debug:
+        sys.stderr.write("=== Raw output ===\n")
+        sys.stderr.write(output)
+        sys.stderr.write("\n=== End raw output ===\n")
+
     now: datetime = datetime.now()
     data: dict = parse(
         output=output,
         now=now,
+        debug=debug,
     )
     if len(data) == 0:
         sys.stderr.write("Failed to get usage data.\n")
@@ -119,9 +157,14 @@ def operation(
         ensure_ascii=False,
         sort_keys=True,
     )
-    with path_out.open("w") as outf:
-        outf.write(json_data)
-        outf.write("\n")
+
+    if str(path_out) == "/dev/stdout":
+        sys.stdout.write(json_data)
+        sys.stdout.write("\n")
+    else:
+        with path_out.open("w") as outf:
+            outf.write(json_data)
+            outf.write("\n")
 
 
 def get_opts() -> argparse.Namespace:
@@ -145,6 +188,11 @@ def get_opts() -> argparse.Namespace:
         default="/dev/stdout",
         required=False,
     )
+    oparser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Print raw output before parsing",
+    )
     return oparser.parse_args()
 
 
@@ -154,6 +202,7 @@ def main() -> None:
         wait=opts.wait,
         path_out=opts.output,
         path_bin=opts.bin,
+        debug=opts.debug,
     )
 
 
