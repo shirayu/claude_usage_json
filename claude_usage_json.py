@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 
 import argparse
-from datetime import datetime
 import json
 import re
 import sys
 import time
+from datetime import datetime
 from pathlib import Path
 
 import pexpect
