@@ -16,7 +16,7 @@ from dateutil import parser
 def get_output(
     *,
     wait: int,
-    cmd: str = "claude /usage",
+    cmd: str,
     timeout: int = 1,
 ) -> str:
     child = pexpect.spawn(cmd)
@@ -96,8 +96,12 @@ def operation(
     *,
     wait: int,
     path_out: Path,
+    path_bin: str,
 ):
-    output: str = get_output(wait=wait)
+    output: str = get_output(
+        wait=wait,
+        cmd=f"{path_bin} /usage",
+    )
 
     now: datetime = datetime.now()
     data: dict = parse(
@@ -129,6 +133,12 @@ def get_opts() -> argparse.Namespace:
         required=False,
     )
     oparser.add_argument(
+        "--bin",
+        type=str,
+        default="claude",
+        required=False,
+    )
+    oparser.add_argument(
         "--output",
         "-o",
         type=Path,
@@ -143,6 +153,7 @@ def main() -> None:
     operation(
         wait=opts.wait,
         path_out=opts.output,
+        path_bin=opts.bin,
     )
 
 
