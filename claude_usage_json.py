@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+from datetime import datetime
 import json
 import re
 import sys
@@ -87,6 +88,8 @@ def operation(
     if len(data) == 0:
         sys.stderr.write("Failed to get usage data.\n")
         sys.exit(1)
+
+    data["Current time"] = datetime.now().isoformat()
 
     json_data = json.dumps(
         data,
