@@ -38,7 +38,11 @@ def get_output(
     return output
 
 
-def parse(*, output: str) -> dict:
+def parse(
+    *,
+    output: str,
+    now: datetime,
+) -> dict:
     clean_output = re.sub(r"\x1b\[[0-9;]*m", "", output)
     sections = re.split(r"\n\s*\n", clean_output.strip())
     data = {}
@@ -59,6 +63,7 @@ def parse(*, output: str) -> dict:
         reset_raw = reset_match.group(1).strip() if reset_match else None
 
         reset_iso = None
+        reset_second: int | None = None
         if reset_raw:
             try:
                 tz_match = re.search(r"\((.+)\)", reset_raw)
@@ -67,11 +72,10 @@ def parse(*, output: str) -> dict:
 
                 tz = pytz.timezone(tz_name)
                 dt = parser.parse(dt_str)
-                dt = tz.localize(dt)
-
-                reset_iso = dt.isoformat()
+                reset_iso = tz.localize(dt).isoformat()
+                reset_second = int((dt - now).total_seconds())
             except Exception:
-                reset_iso = None
+                pass
 
         data[
             name.lower()
@@ -82,6 +86,7 @@ def parse(*, output: str) -> dict:
         ] = {
             "usage_percent": usage,
             "resets": reset_iso,
+            "reset_second": reset_second,
         }
 
     return data
@@ -95,13 +100,15 @@ def operation(
     output: str = get_output(wait=wait)
 
     now: datetime = datetime.now()
-    data: dict = parse(output=output)
+    data: dict = parse(
+        output=output,
+        now=now,
+    )
     if len(data) == 0:
         sys.stderr.write("Failed to get usage data.\n")
         sys.exit(1)
 
     data["time"] = now.isoformat()
-
     json_data = json.dumps(
         data,
         indent=2,

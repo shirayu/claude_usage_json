@@ -13,20 +13,24 @@ uv tool install 'git+https://github.com/shirayu/claude_usage_json'
 # Run in 'trusted folder' where claude not asks you "Do you trust the files in this folder?"
 $ claude_usage_json
 {
-  "current_session": {
-    "resets": "2025-10-01T17:00:00+00:00",
-    "usage_percent": 12
+  "session": {
+    "reset_second": 5550,
+    "resets": "2025-10-02T16:50:00+00:00",
+    "usage_percent": 24
   },
-  "current_time": "2025-10-01T15:05:54.157692",
-  "current_week_all_models": {
-    "resets": "2025-10-08T07:00:00+00:00",
-    "usage_percent": 5
+  "time": "2025-10-02T15:26:29.272697",
+  "week_all_models": {
+    "reset_second": 574350,
+    "resets": "2025-10-09T06:50:00+00:00",
+    "usage_percent": 6
   },
-  "current_week_opus": {
+  "week_opus": {
+    "reset_second": null,
     "resets": null,
     "usage_percent": 0
   }
 }
+
 ```
 
 ## Hint
