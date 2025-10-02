@@ -73,7 +73,16 @@ def parse(*, output: str) -> dict:
             except Exception:
                 reset_iso = None
 
-        data[name] = {"usage_percent": usage, "resets": reset_iso}
+        data[
+            name.lower()
+            .replace("(", "")
+            .replace(")", "")
+            .replace(" ", "_")
+            .replace("current_", "")
+        ] = {
+            "usage_percent": usage,
+            "resets": reset_iso,
+        }
 
     return data
 
@@ -84,12 +93,14 @@ def operation(
     path_out: Path,
 ):
     output: str = get_output(wait=wait)
+
+    now: datetime = datetime.now()
     data: dict = parse(output=output)
     if len(data) == 0:
         sys.stderr.write("Failed to get usage data.\n")
         sys.exit(1)
 
-    data["Current time"] = datetime.now().isoformat()
+    data["time"] = now.isoformat()
 
     json_data = json.dumps(
         data,
