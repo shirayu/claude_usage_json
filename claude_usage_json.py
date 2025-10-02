@@ -227,6 +227,8 @@ def recalc_time(*, path_in: Path, path_out: Path):
                         now.astimezone(reset_dt.tzinfo) if now.tzinfo is None else now
                     )
                     resets_second = int((reset_dt - now_with_tz).total_seconds())
+                    if resets_second < 0:
+                        resets_second = 0
                     value["resets_second"] = resets_second
                 except Exception:
                     pass
