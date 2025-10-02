@@ -5,6 +5,7 @@ import json
 import re
 import sys
 import time
+from pathlib import Path
 
 import pexpect
 import pytz
@@ -79,6 +80,7 @@ def parse(*, output: str) -> dict:
 def operation(
     *,
     wait: int,
+    path_out: Path,
 ):
     output: str = get_output(wait=wait)
     data: dict = parse(output=output)
@@ -92,7 +94,9 @@ def operation(
         ensure_ascii=False,
         sort_keys=True,
     )
-    print(json_data)
+    with path_out.open("w") as outf:
+        outf.write(json_data)
+        outf.write("\n")
 
 
 def get_opts() -> argparse.Namespace:
@@ -103,6 +107,13 @@ def get_opts() -> argparse.Namespace:
         default=3,
         required=False,
     )
+    oparser.add_argument(
+        "--output",
+        "-o",
+        type=Path,
+        default="/dev/stdout",
+        required=False,
+    )
     return oparser.parse_args()
 
 
@@ -110,6 +121,7 @@ def main() -> None:
     opts = get_opts()
     operation(
         wait=opts.wait,
+        path_out=opts.output,
     )
 
 
