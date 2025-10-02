@@ -92,7 +92,9 @@ def parse(
 
                 tz = pytz.timezone(tz_name)
                 # Use default date/time, but parse will override the parts present in dt_str
-                default_dt = now.replace(hour=0, minute=0, second=0, microsecond=0, tzinfo=None)
+                default_dt = now.replace(
+                    hour=0, minute=0, second=0, microsecond=0, tzinfo=None
+                )
                 dt = parser.parse(dt_str, default=default_dt)
                 dt_localized = tz.localize(dt)
 
@@ -102,7 +104,9 @@ def parse(
                     dt_localized = tz.localize(dt)
 
                 reset_iso = dt_localized.isoformat()
-                now_localized = tz.localize(now) if now.tzinfo is None else now.astimezone(tz)
+                now_localized = (
+                    tz.localize(now) if now.tzinfo is None else now.astimezone(tz)
+                )
                 resets_second = int((dt_localized - now_localized).total_seconds())
             except Exception:
                 pass
@@ -193,17 +197,71 @@ def get_opts() -> argparse.Namespace:
         action="store_true",
         help="Print raw output before parsing",
     )
+    oparser.add_argument(
+        "--only-calc-time",
+        type=Path,
+        help="Only recalculate time and resets_second from existing JSON file",
+    )
     return oparser.parse_args()
+
+
+def recalc_time(*, path_in: Path, path_out: Path):
+    with path_in.open("r") as inf:
+        data = json.load(inf)
+
+    now = datetime.now()
+
+    # Update time
+    data["time"] = now.isoformat()
+
+    # Recalculate resets_second for each section
+    for key, value in data.items():
+        if key == "time":
+            continue
+        if isinstance(value, dict) and "resets" in value:
+            reset_iso = value["resets"]
+            if reset_iso:
+                try:
+                    reset_dt = parser.isoparse(reset_iso)
+                    now_with_tz = (
+                        now.astimezone(reset_dt.tzinfo) if now.tzinfo is None else now
+                    )
+                    resets_second = int((reset_dt - now_with_tz).total_seconds())
+                    value["resets_second"] = resets_second
+                except Exception:
+                    pass
+
+    json_data = json.dumps(
+        data,
+        indent=2,
+        ensure_ascii=False,
+        sort_keys=True,
+    )
+
+    if str(path_out) == "/dev/stdout":
+        sys.stdout.write(json_data)
+        sys.stdout.write("\n")
+    else:
+        with path_out.open("w") as outf:
+            outf.write(json_data)
+            outf.write("\n")
 
 
 def main() -> None:
     opts = get_opts()
-    operation(
-        wait=opts.wait,
-        path_out=opts.output,
-        path_bin=opts.bin,
-        debug=opts.debug,
-    )
+
+    if opts.only_calc_time:
+        recalc_time(
+            path_in=opts.only_calc_time,
+            path_out=opts.output,
+        )
+    else:
+        operation(
+            wait=opts.wait,
+            path_out=opts.output,
+            path_bin=opts.bin,
+            debug=opts.debug,
+        )
 
 
 if __name__ == "__main__":

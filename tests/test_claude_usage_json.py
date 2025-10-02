@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 
+import json
+import tempfile
 import unittest
 from datetime import datetime
+from pathlib import Path
 
-from claude_usage_json import parse
+from claude_usage_json import parse, recalc_time
 
 
 class TestParse(unittest.TestCase):
@@ -144,6 +147,130 @@ Current week (Opus)
         self.assertEqual(result["session"]["usage_percent"], 10)
         self.assertEqual(result["session"]["resets"], "2025-10-03T03:00:00+09:00")
         self.assertGreater(result["session"]["resets_second"], 0)
+
+
+class TestRecalcTime(unittest.TestCase):
+    def test_recalc_time_updates_time_and_resets_second(self):
+        """Test that recalc_time updates time and resets_second fields"""
+        # Create a temporary input file with fixed time
+        test_data = {
+            "session": {
+                "resets": "2025-10-03T03:00:00+09:00",
+                "resets_second": 15971,
+                "usage_percent": 11,
+            },
+            "time": "2025-10-02T22:33:48.831581",
+            "week_all_models": {
+                "resets": "2025-10-09T07:00:00+09:00",
+                "resets_second": 548771,
+                "usage_percent": 6,
+            },
+            "week_opus": {
+                "resets": None,
+                "resets_second": None,
+                "usage_percent": 0,
+            },
+        }
+
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".json", delete=False
+        ) as tmp_in:
+            json.dump(test_data, tmp_in)
+            tmp_in_path = Path(tmp_in.name)
+
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".json", delete=False
+        ) as tmp_out:
+            tmp_out_path = Path(tmp_out.name)
+
+        try:
+            # Run recalc_time
+            recalc_time(path_in=tmp_in_path, path_out=tmp_out_path)
+
+            # Read the result
+            with tmp_out_path.open("r") as f:
+                result = json.load(f)
+
+            # Verify that time was updated (should be different from original)
+            self.assertNotEqual(result["time"], test_data["time"])
+
+            # Verify that time is in ISO format and recent
+            result_time = datetime.fromisoformat(result["time"])
+            now = datetime.now()
+            time_diff = abs((now - result_time).total_seconds())
+            self.assertLess(time_diff, 5)  # Should be within 5 seconds
+
+            # Verify that resets_second was recalculated (should be different)
+            self.assertNotEqual(
+                result["session"]["resets_second"], test_data["session"]["resets_second"]
+            )
+            self.assertNotEqual(
+                result["week_all_models"]["resets_second"],
+                test_data["week_all_models"]["resets_second"],
+            )
+
+            # Verify that other fields remain unchanged
+            self.assertEqual(
+                result["session"]["resets"], test_data["session"]["resets"]
+            )
+            self.assertEqual(
+                result["session"]["usage_percent"], test_data["session"]["usage_percent"]
+            )
+            self.assertEqual(
+                result["week_all_models"]["resets"],
+                test_data["week_all_models"]["resets"],
+            )
+            self.assertEqual(
+                result["week_all_models"]["usage_percent"],
+                test_data["week_all_models"]["usage_percent"],
+            )
+            self.assertEqual(
+                result["week_opus"]["resets"], test_data["week_opus"]["resets"]
+            )
+            self.assertEqual(
+                result["week_opus"]["resets_second"],
+                test_data["week_opus"]["resets_second"],
+            )
+
+        finally:
+            tmp_in_path.unlink()
+            tmp_out_path.unlink()
+
+    def test_recalc_time_handles_null_resets(self):
+        """Test that recalc_time handles null resets correctly"""
+        test_data = {
+            "time": "2025-10-02T22:33:48.831581",
+            "week_opus": {
+                "resets": None,
+                "resets_second": None,
+                "usage_percent": 0,
+            },
+        }
+
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".json", delete=False
+        ) as tmp_in:
+            json.dump(test_data, tmp_in)
+            tmp_in_path = Path(tmp_in.name)
+
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".json", delete=False
+        ) as tmp_out:
+            tmp_out_path = Path(tmp_out.name)
+
+        try:
+            recalc_time(path_in=tmp_in_path, path_out=tmp_out_path)
+
+            with tmp_out_path.open("r") as f:
+                result = json.load(f)
+
+            # Verify that null values remain null
+            self.assertIsNone(result["week_opus"]["resets"])
+            self.assertIsNone(result["week_opus"]["resets_second"])
+
+        finally:
+            tmp_in_path.unlink()
+            tmp_out_path.unlink()
 
 
 if __name__ == "__main__":
