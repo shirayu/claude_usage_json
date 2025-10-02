@@ -63,7 +63,7 @@ def parse(
         reset_raw = reset_match.group(1).strip() if reset_match else None
 
         reset_iso = None
-        reset_second: int | None = None
+        resets_second: int | None = None
         if reset_raw:
             try:
                 tz_match = re.search(r"\((.+)\)", reset_raw)
@@ -73,7 +73,7 @@ def parse(
                 tz = pytz.timezone(tz_name)
                 dt = parser.parse(dt_str)
                 reset_iso = tz.localize(dt).isoformat()
-                reset_second = int((dt - now).total_seconds())
+                resets_second = int((dt - now).total_seconds())
             except Exception:
                 pass
 
@@ -86,7 +86,7 @@ def parse(
         ] = {
             "usage_percent": usage,
             "resets": reset_iso,
-            "reset_second": reset_second,
+            "resets_second": resets_second,
         }
 
     return data
