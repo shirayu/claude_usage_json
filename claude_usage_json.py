@@ -233,6 +233,12 @@ def recalc_time(*, path_in: Path, path_out: Path):
                 except Exception:
                     pass
 
+    # Force reset
+    if data.get("session", {}).get("resets_second") == 0:
+        data["session"]["usage_percent"] = 0
+    if data.get("week_all_models", {}).get("resets_second") == 0:
+        data["week_all_models"]["usage_percent"] = 0
+
     json_data = json.dumps(
         data,
         indent=2,
